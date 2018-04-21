@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, make_response, Response
+from flask_cors import CORS
 import psycopg2
 import os
 import json
@@ -7,11 +8,13 @@ import requests
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
+CORS(app)
 @app.after_request
 def after_request(response):
-  response.headers.add('Access-Control-Allow-Origin', '*')
-  response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-  return response
+    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 def send_simple_message(data):
     return requests.post(
@@ -32,10 +35,12 @@ def send_messages():
     customer_message = data['customerMessage']
 
     if len(customer_email) == 0:
-        return Response('Please provide your email.', status=400)
+        resp = Response('Please provide your email.', status=400)
+        return resp
 
     if len(customer_message) == 0:
-        return Response('Please do not send empty message', status=400)
+        resp = Response('Please do not send empty message', status=400)
+        return resp
 
     mailgun_response = send_simple_message(data)
     print(mailgun_response.ok)

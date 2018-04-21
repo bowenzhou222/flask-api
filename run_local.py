@@ -33,7 +33,7 @@ def send_messages():
     customer_phone_number = data['customerPhoneNumber']
     customer_subject = data['customerSubject']
     customer_message = data['customerMessage']
-
+    print(request.cookies)
     if len(customer_email) == 0:
         resp = Response('Please provide your email.', status=400)
         return resp
@@ -43,7 +43,7 @@ def send_messages():
         return resp
 
     mailgun_response = send_simple_message(data)
-    print(mailgun_response.ok)
+
     if not mailgun_response.ok:
         resp = Response('Error when sending message. Please try again later.', status=mailgun_response.status_code)
         return resp
@@ -61,6 +61,105 @@ def send_messages():
     conn.close()
 
     resp = Response('Successful', status=200)
+    resp.headers['set-cookie'] = 'cammyCookie=' + customer_email
+    return resp
+
+
+@app.route('/login', methods=['GET'])
+def login():    
+    data = json.loads(request.data.decode('ascii'))
+    customer_email = data['email']
+    customer_password = data['password']
+
+    if len(customer_email) == 0:
+        resp = Response('Please enter your email.', status=400)
+        return resp
+
+    if len(customer_password) == 0:
+        resp = Response('Please enter your password', status=400)
+        return resp
+
+    conn = psycopg2.connect(
+        database='cammy',
+        user='postgres',
+        host='127.0.0.1',
+    )
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (customer_email, customer_password))
+    records = cursor.fetchall()    
+    cursor.close()
+    conn.close()
+
+    if len(records) == 0:
+        resp = Response('Invalid email or password', status=400)
+        resp.headers['set-cookie'] = 'cammyCookie=' + ''
+        return resp
+
+    resp = Response(jsonify({'email': customer_email}), status=200)
+    resp.headers['set-cookie'] = 'cammyCookie=' + customer_email
+    return resp
+
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = json.loads(request.data.decode('ascii'))
+    customer_email = data['email']
+    customer_password = data['password']
+
+    if len(customer_email) == 0:
+        resp = Response('Please enter your email.', status=400)
+        return resp
+
+    if len(customer_password) == 0:
+        resp = Response('Please enter your password', status=400)
+        return resp
+
+    conn = psycopg2.connect(
+        database='cammy',
+        user='postgres',
+        host='127.0.0.1',
+    )
+
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (customer_email, customer_password))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    resp = make_response(jsonify({'email': customer_email}))
+    resp.status = '200'
+    resp.headers['set-cookie'] = 'cammyCookie=' + customer_email
+    return resp
+
+
+@app.route('/user/get', methods=['GET'])
+def getUser():
+    receivedCookie = request.cookies
+    if 'cammyCookie' in request.cookies:
+        cammyCookie = request.cookies['cammyCookie']
+        if len(cammyCookie) > 0:
+            conn = psycopg2.connect(
+                database='cammy',
+                user='postgres',
+                host='127.0.0.1',
+            )
+
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE email = %s", (cammyCookie,))
+            records = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            if len(records) == 0:
+                resp = Response('No user found', status=404)
+                return resp
+            resp = make_response(jsonify({'email': cammyCookie}))
+            resp.status = '200'
+            resp.headers['set-cookie'] = 'cammyCookie=' + cammyCookie
+            return resp
+
+    resp = Response('Please login', status=404)
     return resp
 
 

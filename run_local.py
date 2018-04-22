@@ -14,6 +14,8 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers['Access-Control-Allow-Headers'] = "Content-Type"
+    print(response.headers)
     return response
 
 def send_simple_message(data):
@@ -66,16 +68,15 @@ def send_messages():
 
 
 @app.route('/login', methods=['GET'])
-def login():    
-    data = json.loads(request.data.decode('ascii'))
-    customer_email = data['email']
-    customer_password = data['password']
+def login():
+    customer_email = request.args.get('email')
+    customer_password = request.args.get('password')
 
-    if len(customer_email) == 0:
+    if not customer_email or len(customer_email) == 0:
         resp = Response('Please enter your email.', status=400)
         return resp
 
-    if len(customer_password) == 0:
+    if not customer_password or len(customer_password) == 0:
         resp = Response('Please enter your password', status=400)
         return resp
 
@@ -96,7 +97,8 @@ def login():
         resp.headers['set-cookie'] = 'cammyCookie=' + ''
         return resp
 
-    resp = Response(jsonify({'email': customer_email}), status=200)
+    resp = make_response(jsonify({'email': customer_email}))
+    resp.status = '200'
     resp.headers['set-cookie'] = 'cammyCookie=' + customer_email
     return resp
 
@@ -138,6 +140,7 @@ def getUser():
     receivedCookie = request.cookies
     if 'cammyCookie' in request.cookies:
         cammyCookie = request.cookies['cammyCookie']
+        print(cammyCookie)
         if len(cammyCookie) > 0:
             conn = psycopg2.connect(
                 database='cammy',
@@ -160,6 +163,31 @@ def getUser():
             return resp
 
     resp = Response('Please login', status=404)
+    return resp
+
+
+@app.route('/messages/get', methods=['GET'])
+def getMessages():
+    email = request.args.get('email')
+    conn = psycopg2.connect(
+        database='cammy',
+        user='postgres',
+        host='127.0.0.1',
+    )
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM messages WHERE email = %s", (email,))
+    records = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    result = []
+    columns = ('name', 'email', 'phoneNumber', 'subject', 'message')
+    for record in records:
+        result.append(dict(zip(columns, record)))
+    cursor.close()
+    conn.close()
+    resp = make_response(jsonify(messages=result))
     return resp
 
 

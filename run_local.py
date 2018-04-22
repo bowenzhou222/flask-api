@@ -15,7 +15,6 @@ def after_request(response):
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     response.headers['Access-Control-Allow-Headers'] = "Content-Type"
-    print(response.headers)
     return response
 
 def send_simple_message(data):
@@ -35,7 +34,7 @@ def send_messages():
     customer_phone_number = data['customerPhoneNumber']
     customer_subject = data['customerSubject']
     customer_message = data['customerMessage']
-    print(request.cookies)
+
     if len(customer_email) == 0:
         resp = Response('Please provide your email.', status=400)
         return resp
@@ -140,7 +139,6 @@ def getUser():
     receivedCookie = request.cookies
     if 'cammyCookie' in request.cookies:
         cammyCookie = request.cookies['cammyCookie']
-        print(cammyCookie)
         if len(cammyCookie) > 0:
             conn = psycopg2.connect(
                 database='cammy',
@@ -168,26 +166,32 @@ def getUser():
 
 @app.route('/messages/get', methods=['GET'])
 def getMessages():
-    email = request.args.get('email')
-    conn = psycopg2.connect(
-        database='cammy',
-        user='postgres',
-        host='127.0.0.1',
-    )
+    receivedCookie = request.cookies
+    if 'cammyCookie' in request.cookies:
+        cammyCookie = request.cookies['cammyCookie']
+        if len(cammyCookie) > 0:
+            conn = psycopg2.connect(
+                database='cammy',
+                user='postgres',
+                host='127.0.0.1',
+            )
 
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM messages WHERE email = %s", (email,))
-    records = cursor.fetchall()
-    cursor.close()
-    conn.close()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM messages WHERE email = %s", (cammyCookie,))
+            records = cursor.fetchall()
+            cursor.close()
+            conn.close()
 
-    result = []
-    columns = ('name', 'email', 'phoneNumber', 'subject', 'message')
-    for record in records:
-        result.append(dict(zip(columns, record)))
-    cursor.close()
-    conn.close()
-    resp = make_response(jsonify(messages=result))
+            result = []
+            columns = ('name', 'email', 'phoneNumber', 'subject', 'message')
+            for record in records:
+                result.append(dict(zip(columns, record)))
+            cursor.close()
+            conn.close()
+            resp = make_response(jsonify(messages=result))
+            return resp
+    
+    resp = Response('Unauthroized', status=400)
     return resp
 
 
